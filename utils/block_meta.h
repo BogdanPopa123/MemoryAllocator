@@ -23,6 +23,8 @@ struct block_meta {
 	struct block_meta *next;
 };
 
+extern struct block_meta *block_meta_head; //the head of the block metadata list
+
 /* Block metadata status values */
 #define STATUS_FREE   0
 #define STATUS_ALLOC  1
