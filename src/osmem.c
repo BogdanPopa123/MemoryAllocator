@@ -5,6 +5,7 @@
 #include "printf.h"
 #include <sys/mman.h>
 #include <unistd.h>
+#include <string.h>
 
 
 #define MMAP_THRESHOLD		(128 * 1024)
@@ -210,32 +211,36 @@ void *os_malloc(size_t size)
 	// }
 
 	if (size == 0) {
+		heap_prealocatted = 1;
 		return NULL;
 	}
 
-	// if (heap_prealocatted == 0 && block_meta_head == NULL) {
-	// 	heap_prealocatted = 1;
-	// 	// struct block_meta *prealloc_block = request_space(NULL, 128 * 1024);
-	// 	struct block_meta *prealloc_block;
+	if (heap_prealocatted == 0 && block_meta_head == NULL) {
+		heap_prealocatted = 1;
+		// struct block_meta *prealloc_block = request_space(NULL, 128 * 1024);
+		struct block_meta *prealloc_block;
 	
-	// 	block_meta_head = prealloc_block;
 
-	// 	int meta_size = sizeof(struct block_meta);
-	// 	int request_size = MMAP_THRESHOLD;
+		int meta_size = sizeof(struct block_meta);
+		int request_size = MMAP_THRESHOLD;
 
-	// 	prealloc_block = sbrk(0);
-	// 	void *request = sbrk(request_size);
+		prealloc_block = sbrk(0);
+
 		
-	// 	if (request == (void*) -1){
-	// 		return NULL; // sbrk failed.
-	// 	}
+		block_meta_head = prealloc_block;
 
-	// 	prealloc_block->next = NULL;
-	// 	prealloc_block->prev = NULL;
-	// 	prealloc_block->status = STATUS_FREE;
-	// 	prealloc_block->size = MMAP_THRESHOLD - PADDING(sizeof(struct block_meta));
+		void *request = sbrk(request_size);
+		
+		if (request == (void*) -1){
+			return NULL; // sbrk failed.
+		}
 
-	// }
+		prealloc_block->next = NULL;
+		prealloc_block->prev = NULL;
+		prealloc_block->status = STATUS_FREE;
+		prealloc_block->size = MMAP_THRESHOLD - PADDING(sizeof(struct block_meta));
+
+	}
 
 	if (size == 131032) {
 		size = size + 8;
@@ -247,7 +252,9 @@ void *os_malloc(size_t size)
 		struct block_meta *block;
 		//pointerul catre aceasta lista o sa fie pe NULL doar la
 		//primul apel malloc
-		if (!block_meta_head) {
+
+		//asta era inainte de a implementa heap alloc
+		if (!block_meta_head && heap_prealocatted == 1) {
 			block = request_space(NULL, size);
 			if (!block) {
 				return NULL;
@@ -255,6 +262,7 @@ void *os_malloc(size_t size)
 
 			block_meta_head = block;
 		} else { //cazul else este atunci cand avem deja alte blocuri alocate (cand nu este primul apel malloc)
+			//ACOLADA ACESTUI ELSE DEASUPRA LA RETURN (BLOCK + 1)
 			struct block_meta *last = block_meta_head;
 			// block = find_free_block(&head, size);
 			block = find_free_block(block_meta_head, size);
@@ -309,6 +317,18 @@ void os_free(void *ptr)
 void *os_calloc(size_t nmemb, size_t size)
 {
 	/* TODO: Implement os_calloc */
+
+	if (nmemb == 0 || size == 0) {
+		return NULL;
+	}
+
+	size_t allocation_size = nmemb * size;
+
+	void *ptr = os_malloc(size);
+	memset(ptr, 0, allocation_size);
+	return ptr;
+
+
 	return NULL;
 }
 
