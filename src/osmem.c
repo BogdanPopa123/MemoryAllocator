@@ -253,7 +253,8 @@ void *os_malloc(size_t size)
 		//pointerul catre aceasta lista o sa fie pe NULL doar la
 		//primul apel malloc
 
-		//asta era inainte de a implementa heap alloc
+		//in cazul in care se da primul apel malloc(0) nu se mai face heap_prealloc si deci head o sa fie null
+		//iar procesul de heap prealloc o sa fie completat, prealocarea avand loc pt 0 bytes
 		if (!block_meta_head && heap_prealocatted == 1) {
 			block = request_space(NULL, size);
 			if (!block) {
@@ -269,6 +270,60 @@ void *os_malloc(size_t size)
 
 			//daca nu s a putut gasi un bloc de memorie cerem unul nou
 			if (!block) {
+
+				//mai intai verificam daca ultimul block este free, pentru a aloca fix cat este necesar
+				struct block_meta *last = get_last_element_of_list(block_meta_head);
+
+
+
+
+
+
+				//daca ultimul element este free, nu alocam size, alocam un nou bloc
+				//dupa ultimul de marime size - last->size, apoi le lipim 
+				if (last && last->status == STATUS_FREE) {
+					struct block_meta *new_last;
+
+					
+					int request_size =  PADDING(size) - PADDING(last->size);
+					new_last = sbrk(0);
+					void *request = sbrk(request_size);
+					
+					if (request == (void*) -1){
+						return NULL; // sbrk failed.
+						
+					}
+
+					if (last){ 
+					// last->next->prev = block; //nu e nevoie, deoarece last este ultimul element
+					// dam request doar daca in lista n am gasit nimic, aka am ajuns la last si n am gasit nimic
+					last->next = new_last;
+					// block->prev = last;
+					}
+
+				
+					new_last->prev = last;
+					// new_last->size = PADDING(size- last->size - META_PADDING); //inaince era doar size
+					new_last->size = PADDING(size) - PADDING(last->size) - META_PADDING;
+					new_last->next = NULL;
+					new_last->status = STATUS_FREE;
+
+					coalesce_all();
+
+					return (last + 1);
+					
+				} else {
+				
+
+				
+
+
+
+
+
+
+
+
 				// block = request_space(last, size);
 				//am preferat aceasta scriere in locul celei comentate mai sus pentru a evita argumentul &last
 				//de la apelul find_free_block
@@ -276,6 +331,9 @@ void *os_malloc(size_t size)
 				if (!block) {
 					return NULL;
 				}
+				}
+
+
 			} else { //daca s a gasit un bloc liber de memorie
 				//TODO SPLIT THE BLOCK (did it in find function)
 				block->status = STATUS_ALLOC;
