@@ -9,6 +9,7 @@
 
 
 #define MMAP_THRESHOLD		(128 * 1024)
+#define CALLOC_THRESHOLD	(4 * 1024)
 #define MAP_ANON 0x20
 #define PADDING(size)   (((size) % 8 == 0) ? (size) : ((size) + (8 - (size) % 8)))
 #define META_PADDING   PADDING(sizeof(struct block_meta))
@@ -17,7 +18,7 @@ struct block_meta *block_meta_head;
 
 int heap_prealocatted = 0;
 
-
+int allocation_threshold;
 
 
 //helper functions
@@ -122,7 +123,11 @@ struct block_meta *request_space(struct block_meta* last, size_t size) {
 	int request_size = (meta_size % 8 == 0 ? meta_size : (meta_size + (8 - meta_size % 8))) 
 	+ ((size % 8 == 0) ? size : (size + (8 - size % 8)));
 
-	if (size < MMAP_THRESHOLD){
+	
+	//inainte aveam MMAP_THRESHOLD in loc de allocation_threshold atunci cand foloseam
+	//aceasta functie ca helper doar pentru malloc
+	//pentru ca malloc si calloc au threshoulduri diferite de mmap/brk voi folosi asta
+	if (size < allocation_threshold){
 		block = sbrk(0);
 		void *request = sbrk(request_size);
 		
@@ -209,6 +214,7 @@ void *os_malloc(size_t size)
 	// 	heapPreallocated = 1;
 	// 	sbrk(0);
 	// }
+	allocation_threshold = MMAP_THRESHOLD;
 
 	if (size == 0) {
 		heap_prealocatted = 1;
@@ -256,6 +262,7 @@ void *os_malloc(size_t size)
 		//in cazul in care se da primul apel malloc(0) nu se mai face heap_prealloc si deci head o sa fie null
 		//iar procesul de heap prealloc o sa fie completat, prealocarea avand loc pt 0 bytes
 		if (!block_meta_head && heap_prealocatted == 1) {
+			// allocation_threshold = MMAP_THRESHOLD;
 			block = request_space(NULL, size);
 			if (!block) {
 				return NULL;
@@ -382,6 +389,7 @@ void *os_calloc(size_t nmemb, size_t size)
 
 	size_t allocation_size = nmemb * size;
 
+	allocation_threshold = CALLOC_THRESHOLD;
 	void *ptr = os_malloc(size);
 	memset(ptr, 0, allocation_size);
 	return ptr;
