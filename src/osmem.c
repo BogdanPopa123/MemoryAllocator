@@ -20,11 +20,37 @@ int heap_prealocatted = 0;
 
 int allocation_threshold;
 
+int coming_from_calloc = 0;
+
 
 //helper functions
+
+
+void *my_memset(void *source, int value, size_t num)
+{
+	/* TODO: Implement memset(). */
+	int i, n = (int)num;
+	char *charSource = (char *)source;
+
+	for (i = 0; i < n; i++) {
+		*(charSource + i) = value;
+	}
+
+	return source;
+}
+
+
+
+
+
 void coalesce_all() {
 	struct block_meta *cursor = block_meta_head;
 	// struct block_meta *to_be_freed;
+
+	// if (cursor == NULL || cursor->next == NULL) {
+	// 	return;
+	// }
+
 	while (cursor->next) {
 		if (cursor->status == STATUS_FREE && cursor->next->status == STATUS_FREE) {
 
@@ -94,9 +120,9 @@ struct block_meta *find_free_block(struct block_meta *head, size_t size) {
 			new_block->status = STATUS_FREE;
 
 			new_block->size = PADDING(closest_block->size) - padded_size - padded_meta;
-			printf_("for malloc call %d, the new block size is %d\n", size, new_block->size);
-			printf_("-     closest block found is %p\n", closest_block);
-			printf_("-     and the new address is %p\n", new_block);
+			// printf_("for malloc call %d, the new block size is %d\n", size, new_block->size);
+			// printf_("-     closest block found is %p\n", closest_block);
+			// printf_("-     and the new address is %p\n", new_block);
 
 			//add to linked list
 			new_block->prev = closest_block;
@@ -127,7 +153,7 @@ struct block_meta *request_space(struct block_meta* last, size_t size) {
 	//inainte aveam MMAP_THRESHOLD in loc de allocation_threshold atunci cand foloseam
 	//aceasta functie ca helper doar pentru malloc
 	//pentru ca malloc si calloc au threshoulduri diferite de mmap/brk voi folosi asta
-	if (size < allocation_threshold){
+	if (request_size < allocation_threshold){
 		block = sbrk(0);
 		void *request = sbrk(request_size);
 		
@@ -160,16 +186,28 @@ struct block_meta *request_space(struct block_meta* last, size_t size) {
 		if (last) {
 			// last->next->prev = block_mmap; // nu e nevoie, deoarece last este ultimul element
 			// dam request doar daca in lista n am gasit nimic, aka am ajuns la last si n am gasit nimic 
-			last->next = block_mmap;
+
+
+
+			last->next = (struct block_meta *)ptr;//block_mmap;
+
+
+
 			// block_mmap->prev = last;
 		}
 		
-		block_mmap->prev = last;
-		block_mmap->next = NULL;
-		block_mmap->size = (size % 8 == 0) ? size : (size + (8 - size % 8)); //inainte era doar size
-		block_mmap->status = STATUS_MAPPED;
+		// block_mmap->prev = last;
+		// block_mmap->next = NULL;
+		// block_mmap->size = (size % 8 == 0) ? size : (size + (8 - size % 8)); //inainte era doar size
+		// block_mmap->status = STATUS_MAPPED;
 		
-		return block_mmap;
+
+		((struct block_meta *)ptr)->prev = last;
+		((struct block_meta *)ptr)->next = NULL;
+		((struct block_meta *)ptr)->size = (size % 8 == 0) ? size : (size + (8 - size % 8)); //inainte era doar size
+		((struct block_meta *)ptr)->status = STATUS_MAPPED;
+		
+		return (struct block_meta *)ptr;
 
 	}
 }
@@ -214,13 +252,27 @@ void *os_malloc(size_t size)
 	// 	heapPreallocated = 1;
 	// 	sbrk(0);
 	// }
-	allocation_threshold = MMAP_THRESHOLD;
+	if (!coming_from_calloc) {
+		allocation_threshold = MMAP_THRESHOLD;
+	} else {
+		coming_from_calloc;
+		allocation_threshold = CALLOC_THRESHOLD;
+	}
 
 	if (size == 0) {
 		heap_prealocatted = 1;
 		return NULL;
 	}
 
+
+	//daca size este mai mare decat thresholdul de mmap nu are rost sa fac
+	//prealloc, pentru ca oricum o sa cer iar memorie dupa aceea ca sa maresc
+	//blocul prealocat la 128kb
+	if (size > MMAP_THRESHOLD) {
+		heap_prealocatted = 1;
+	}
+
+	//aici se face heap prealloc
 	if (heap_prealocatted == 0 && block_meta_head == NULL) {
 		heap_prealocatted = 1;
 		// struct block_meta *prealloc_block = request_space(NULL, 128 * 1024);
@@ -373,8 +425,31 @@ void os_free(void *ptr)
 	} else if (block_ptr->status == STATUS_MAPPED){
 		block_ptr->status = STATUS_FREE;
 		int meta_size = sizeof(struct block_meta);
-		int free_size = (meta_size % 8 == 0 ? meta_size : (meta_size + (8 - meta_size % 8))) + block_ptr->size;
+		int free_size = (meta_size % 8 == 0 ? meta_size : (meta_size + (8 - meta_size % 8))) + PADDING(block_ptr->size);
+		
+		//scoatem pe block_ptr din lista
+		if (block_ptr->next) {
+			block_ptr->next->prev = block_ptr->prev;
+		} else {
+			//aici cazul in care block_ptr este ultimul nod
+			block_ptr->prev = NULL;
+		}
+
+		if (block_ptr->prev) {
+			block_ptr->prev->next = block_ptr->next;
+		} else {
+			//aici cazul in care block_ptr este primul nod
+			block_ptr->next = NULL;
+		}
+
+		if (block_ptr->next == NULL && block_ptr->prev == NULL && block_ptr != NULL) {
+			//daca block_meta_head are un singur element si vreau sa ii dau free;
+			block_meta_head = NULL;
+		}
+		
 		munmap(block_ptr, free_size);
+
+
 	}
 
 }
@@ -384,14 +459,18 @@ void *os_calloc(size_t nmemb, size_t size)
 	/* TODO: Implement os_calloc */
 
 	if (nmemb == 0 || size == 0) {
+		heap_prealocatted = 1;
 		return NULL;
 	}
 
 	size_t allocation_size = nmemb * size;
 
 	allocation_threshold = CALLOC_THRESHOLD;
-	void *ptr = os_malloc(size);
-	memset(ptr, 0, allocation_size);
+
+	coming_from_calloc = 1;
+
+	void *ptr = os_malloc(allocation_size);
+	my_memset(ptr, 0, allocation_size);
 	return ptr;
 
 
@@ -401,6 +480,105 @@ void *os_calloc(size_t nmemb, size_t size)
 void *os_realloc(void *ptr, size_t size)
 {
 	/* TODO: Implement os_realloc */
+	if (ptr == NULL) {
+		return os_malloc(size);
+	}
+
+	if (((struct block_meta *)ptr)->status == STATUS_FREE) {
+		return NULL;
+	}
+
+	if (size == 0) {
+		os_free(ptr);
+		return NULL; // nu stiu ce ar trbui sa returnez;
+	}
+
+	struct block_meta* current_block = get_block_ptr(ptr);
+	coalesce_all();
+
+	//in cazul in care dorim ca la realloc sa marim zona
+	if (size > current_block->size) {
+		//verificam daca se poate realiza lipirea cu blocul din dreapta, dupa ce
+		//am facut coalesce() la intrarea in functia de realloc()
+		if (current_block->next != NULL && current_block->next->status == STATUS_FREE &&
+		 PADDING(current_block->size) + META_PADDING + PADDING(current_block->next->size) <= PADDING(size)) {
+
+			current_block->size = current_block->size + META_PADDING + current_block->next->size;
+
+			current_block->next = current_block->next->next;
+			if (current_block->next) {
+				current_block->next->prev = current_block;
+			}
+			return (current_block + 1);
+
+		} else if (current_block->next == NULL) {
+			//daca totusi nu se poate uni cu blocul din dreapta pentru ca nu e suficienta
+			//memorie/nu e liber blocul, putem incerca sa vedem daca blocul caruia ii
+			//dam realloc este ultimul din lista, caz in care putem da malloc doar
+			//la cata memorie avem nevoie in plus, dupa care unificam cele doua blocuri
+			int needed_size = PADDING(size) - META_PADDING - current_block->size;
+			struct block_meta* helper_block = get_block_ptr(malloc(needed_size));
+
+			//unim blocul curent(penultimul) cu ultimul bloc creat, dupa care
+			//il eliminam pe ultimul din lista
+			current_block->size = PADDING(size);
+			current_block->next = NULL;
+			
+			return (current_block + 1);
+		} else {
+			//daca nu s a putut nici sa ne lipim cu blocurile la ddreapta,
+			//iar blocul curent nu este nici ultimul pentru a aplica schema de mai
+			//sus, atunci va fi nevoie sa aloc noul pointer altundeva in memorie
+			void *new_ptr = os_malloc(size);
+			memcpy(new_ptr, ptr, size);
+			
+			//scoatem blocul curent din lista
+			//daca il scoatem inseamna ca sigur nu este ultimul, deci current_block->next exista
+			// if (block_meta_head == current_block) {
+			// 	block_meta_head = block_meta_head->next;
+			// }
+			// else {
+			// 	current_block->next->prev = current_block->prev;
+			// 	current_block->prev->next = current_block->next;
+			// }
+			os_free(ptr);
+
+
+			return new_ptr;
+
+		}
+
+	} else if (current_block->size - PADDING(size) >= 40) {
+		//daca noul size este mai mic facem splitting
+		//acest splitting are rost doar daca ar mai ramane minim 40 de bytes
+		//liberi dupa splituire (32 din struct + 8 pentru bufferul aligned)
+
+
+		
+		struct block_meta *new_block = (struct block_meta *)((char *)current_block + META_PADDING + PADDING(size));
+		new_block->status = STATUS_FREE;
+
+		new_block->size = PADDING(current_block->size) - PADDING(size) - META_PADDING;
+		// printf_("for malloc call %d, the new block size is %d\n", size, new_block->size);
+		// printf_("-     closest block found is %p\n", closest_block);
+		// printf_("-     and the new address is %p\n", new_block);
+
+		//add to linked list
+		new_block->prev = current_block;
+		new_block->next = current_block->next;
+		current_block->next = new_block;
+		if (new_block->next != NULL) {
+			new_block->next->prev = new_block;
+		}
+
+		current_block->size = PADDING(size);
+
+
+
+
+	}
+
+
 	return NULL;
 }
 
