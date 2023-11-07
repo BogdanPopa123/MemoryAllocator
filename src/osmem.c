@@ -22,6 +22,8 @@ int allocation_threshold;
 
 int coming_from_calloc = 0;
 
+int coming_from_realloc = 0;
+
 
 //helper functions
 
@@ -37,6 +39,18 @@ void *my_memset(void *source, int value, size_t num)
 	}
 
 	return source;
+}
+
+int are_all_mapped() {
+	struct block_meta *cursor = block_meta_head;
+
+	while (cursor->next) {
+		if (cursor->status != STATUS_MAPPED) {
+			return 0;
+		}
+		cursor = cursor->next;
+	}
+	return 1;
 }
 
 
@@ -300,6 +314,35 @@ void *os_malloc(size_t size)
 
 	}
 
+
+	//aici se face heap prealloc in cazul reallocului
+	if (block_meta_head && are_all_mapped() && coming_from_realloc) {
+		coming_from_realloc = 0;
+		heap_prealocatted = 1;
+
+		struct block_meta *prealloc_block;
+	
+
+		int meta_size = sizeof(struct block_meta);
+		int request_size = MMAP_THRESHOLD;
+
+		prealloc_block = sbrk(0);
+
+		
+		block_meta_head = prealloc_block;
+
+		void *request = sbrk(request_size);
+		
+		if (request == (void*) -1){
+			return NULL; // sbrk failed.
+		}
+
+		prealloc_block->next = NULL;
+		prealloc_block->prev = NULL;
+		prealloc_block->status = STATUS_FREE;
+		prealloc_block->size = MMAP_THRESHOLD - PADDING(sizeof(struct block_meta));
+	}
+
 	if (size == 131032) {
 		size = size + 8;
 	}
@@ -484,7 +527,9 @@ void *os_realloc(void *ptr, size_t size)
 		return os_malloc(size);
 	}
 
-	if (((struct block_meta *)ptr)->status == STATUS_FREE) {
+	struct block_meta* current_block = get_block_ptr(ptr);
+
+	if (current_block->status == STATUS_FREE) {
 		return NULL;
 	}
 
@@ -493,8 +538,44 @@ void *os_realloc(void *ptr, size_t size)
 		return NULL; // nu stiu ce ar trbui sa returnez;
 	}
 
-	struct block_meta* current_block = get_block_ptr(ptr);
 	coalesce_all();
+
+
+	//blocurile alocate cu mmap nu pot fi realocate decat cu ajutorul memcpy
+	if (current_block->status == STATUS_MAPPED) {
+		coming_from_realloc = 1;
+		void *new_ptr = os_malloc(PADDING(size));
+
+		//il eliminam pe current_block din lista
+		// if (current_block->next) {
+		// 	current_block->next->prev = current_block->prev
+		// }
+
+		// if (current_block->prev) {
+		// 	current_block->prev->next = current_block->next;
+		// }
+
+		// if (current_block->next == NULL && current_block->prev == NULL) {
+		// 	block_meta_head = NULL;
+		// }
+
+		//copiam memoria
+		memcpy(new_ptr, (current_block + 1), PADDING(size));
+
+		//facem unmap
+		os_free((current_block + 1));
+
+		//daca avem un singur element in lista, adica cel cu STATUS_MAPPED,
+		//care va urma sa fie scos, atunci va trebui sa facem heap prealloc
+		//la urmatorul apel de malloc
+		// if (block_meta_head->next == NULL) {
+		// 	heap_prealocatted = 0;
+		// }
+
+		return new_ptr;
+
+	}
+
 
 	//in cazul in care dorim ca la realloc sa marim zona
 	if (size > current_block->size) {
@@ -554,26 +635,31 @@ void *os_realloc(void *ptr, size_t size)
 		//liberi dupa splituire (32 din struct + 8 pentru bufferul aligned)
 
 
-		
-		struct block_meta *new_block = (struct block_meta *)((char *)current_block + META_PADDING + PADDING(size));
-		new_block->status = STATUS_FREE;
+		if (current_block->status == STATUS_ALLOC){
 
-		new_block->size = PADDING(current_block->size) - PADDING(size) - META_PADDING;
-		// printf_("for malloc call %d, the new block size is %d\n", size, new_block->size);
-		// printf_("-     closest block found is %p\n", closest_block);
-		// printf_("-     and the new address is %p\n", new_block);
+			
+			struct block_meta *new_block = (struct block_meta *)((char *)current_block + META_PADDING + PADDING(size));
+			new_block->status = STATUS_FREE;
 
-		//add to linked list
-		new_block->prev = current_block;
-		new_block->next = current_block->next;
-		current_block->next = new_block;
-		if (new_block->next != NULL) {
-			new_block->next->prev = new_block;
-		}
+			new_block->size = PADDING(current_block->size) - PADDING(size) - META_PADDING;
+			// printf_("for malloc call %d, the new block size is %d\n", size, new_block->size);
+			// printf_("-     closest block found is %p\n", closest_block);
+			// printf_("-     and the new address is %p\n", new_block);
 
-		current_block->size = PADDING(size);
+			//add to linked list
+			new_block->prev = current_block;
+			new_block->next = current_block->next;
+			current_block->next = new_block;
+			if (new_block->next != NULL) {
+				new_block->next->prev = new_block;
+			}
 
+			current_block->size = PADDING(size);
 
+		} //else if (current_block->status == STATUS_MAPPED) {
+			// munmap si micsorare
+			//daca dau munmap va trebui sa fiu atent sa fac si heap prealloc
+		// }
 
 
 	}
