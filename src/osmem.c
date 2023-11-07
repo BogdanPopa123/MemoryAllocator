@@ -328,17 +328,18 @@ void *os_malloc(size_t size)
 
 		prealloc_block = sbrk(0);
 
-		
-		block_meta_head = prealloc_block;
+		struct block_meta *last = get_last_element_of_list(block_meta_head);
+
+		// block_meta_head = prealloc_block;
 
 		void *request = sbrk(request_size);
 		
 		if (request == (void*) -1){
 			return NULL; // sbrk failed.
 		}
-
+		last->next = prealloc_block;
 		prealloc_block->next = NULL;
-		prealloc_block->prev = NULL;
+		prealloc_block->prev = last;
 		prealloc_block->status = STATUS_FREE;
 		prealloc_block->size = MMAP_THRESHOLD - PADDING(sizeof(struct block_meta));
 	}
@@ -546,18 +547,6 @@ void *os_realloc(void *ptr, size_t size)
 		coming_from_realloc = 1;
 		void *new_ptr = os_malloc(PADDING(size));
 
-		//il eliminam pe current_block din lista
-		// if (current_block->next) {
-		// 	current_block->next->prev = current_block->prev
-		// }
-
-		// if (current_block->prev) {
-		// 	current_block->prev->next = current_block->next;
-		// }
-
-		// if (current_block->next == NULL && current_block->prev == NULL) {
-		// 	block_meta_head = NULL;
-		// }
 
 		//copiam memoria
 		memcpy(new_ptr, (current_block + 1), PADDING(size));
@@ -568,21 +557,16 @@ void *os_realloc(void *ptr, size_t size)
 		//daca avem un singur element in lista, adica cel cu STATUS_MAPPED,
 		//care va urma sa fie scos, atunci va trebui sa facem heap prealloc
 		//la urmatorul apel de malloc
-		// if (block_meta_head->next == NULL) {
-		// 	heap_prealocatted = 0;
-		// }
 
 		return new_ptr;
-
 	}
-
 
 	//in cazul in care dorim ca la realloc sa marim zona
 	if (size > current_block->size) {
 		//verificam daca se poate realiza lipirea cu blocul din dreapta, dupa ce
 		//am facut coalesce() la intrarea in functia de realloc()
 		if (current_block->next != NULL && current_block->next->status == STATUS_FREE &&
-		 PADDING(current_block->size) + META_PADDING + PADDING(current_block->next->size) <= PADDING(size)) {
+		 PADDING(current_block->size) + META_PADDING + PADDING(current_block->next->size) >= PADDING(size)) {
 
 			current_block->size = current_block->size + META_PADDING + current_block->next->size;
 
@@ -590,6 +574,46 @@ void *os_realloc(void *ptr, size_t size)
 			if (current_block->next) {
 				current_block->next->prev = current_block;
 			}
+
+			//////////////////////////////////////////////////////////////////////////////////////////
+			//////////////////////////////////////////////////////////////////////////////////////////
+
+			//intre aceste  // se afla optimizarea la marire de realloc. nu e buna totusi
+
+			// //aici retinem cat ar trebui sa imprumutam din sizeul blocului adiacent
+			// int borrowed = PADDING(size) - current_block->size - META_PADDING;
+			// //in remainder retinem cat ar fi current.next.size daca imprumuta ca avem nevoie
+			// int remainder = current_block->next->size - borrowed;
+
+			// //daca raman macar 40 de bytes inseamna ca are rost sa facem split
+			// //adica sa adaugam un bloc la dreapta cu restul de size ramas
+			// if (remainder >=40) {
+			// 	current_block->size = PADDING(size);
+
+			// 	struct block_meta *new_block = (struct block_meta *)((char *)current_block + META_PADDING +current_block->size);
+			// 	new_block->status = STATUS_FREE;
+			// 	new_block->size = PADDING(remainder) - META_PADDING;
+
+			// 	new_block->prev = current_block;
+			// 	new_block->next = current_block->next;
+			// 	current_block->next = new_block;
+			// 	if (new_block->next != NULL) {
+			// 		new_block->next->prev = new_block;
+			// 	}
+
+			// } else {
+			// 	//daca nu ramane destula memorie dupa vom lipi tot blocul
+			// 	current_block->size = current_block->size + META_PADDING + current_block->next->size;
+
+			// 	current_block->next = current_block->next->next;
+			// 	if (current_block->next) {
+			// 		current_block->next->prev = current_block;
+			// 	}
+			// }
+
+			//////////////////////////////////////////////////////////////////////////////////////////
+			//////////////////////////////////////////////////////////////////////////////////////////
+
 			return (current_block + 1);
 
 		} else if (current_block->next == NULL) {
@@ -656,12 +680,18 @@ void *os_realloc(void *ptr, size_t size)
 
 			current_block->size = PADDING(size);
 
+			return (current_block + 1);
+
 		} //else if (current_block->status == STATUS_MAPPED) {
 			// munmap si micsorare
 			//daca dau munmap va trebui sa fiu atent sa fac si heap prealloc
 		// }
 
 
+	} else if (PADDING(size) < current_block->size) {
+		//cazul asta este atunci cand facem resize la un bloc mai mic, dar nu putem face si un bloc nou
+		current_block->size = PADDING(size);
+		return (current_block + 1);
 	}
 
 
