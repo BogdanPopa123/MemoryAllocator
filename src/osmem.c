@@ -564,6 +564,10 @@ void *os_realloc(void *ptr, size_t size)
 
 	coalesce_all();
 
+	//daca dau realloc la fix cata memorie aveam si inainte
+	if (PADDING(current_block->size) == PADDING(size)) {
+		return (current_block + 1);
+	}
 
 	//blocurile alocate cu mmap nu pot fi realocate decat cu ajutorul memcpy
 	if (current_block->status == STATUS_MAPPED) {
@@ -584,6 +588,10 @@ void *os_realloc(void *ptr, size_t size)
 
 		return new_ptr;
 	}
+
+	
+
+
 
 	//in cazul in care dorim ca la realloc sa marim zona
 	if (size > current_block->size) {
@@ -645,16 +653,38 @@ void *os_realloc(void *ptr, size_t size)
 			//memorie/nu e liber blocul, putem incerca sa vedem daca blocul caruia ii
 			//dam realloc este ultimul din lista, caz in care putem da malloc doar
 			//la cata memorie avem nevoie in plus, dupa care unificam cele doua blocuri
-			int needed_size = PADDING(size) - META_PADDING - current_block->size;
-			struct block_meta* helper_block = get_block_ptr(malloc(needed_size));
+			int needed_size = PADDING(size) - current_block->size;
+			// struct block_meta* helper_block = get_block_ptr(malloc(needed_size));
+
+			void *request = sbrk(needed_size);
+		
+			if (request == (void*) -1){
+				return NULL; // sbrk failed.
+			}
+			current_block->size = PADDING(size);
+			current_block->next = NULL;
+
+			return (current_block + 1);
 
 			//unim blocul curent(penultimul) cu ultimul bloc creat, dupa care
 			//il eliminam pe ultimul din lista
-			current_block->size = PADDING(size);
-			current_block->next = NULL;
+			
 			
 			return (current_block + 1);
-		} else {
+		} //else if (current_block->next == NULL && (PADDING(size) - current_block->size) < 40) {
+		// 	//daca vrem sa extindem ultimul bloc cu mai putin de 40 de octeti facem direct cu sbrk
+		// 	int request_size = PADDING(size) - current_block->size;
+		// 	void *request = sbrk(request_size);
+		
+		// 	if (request == (void*) -1){
+		// 		return NULL; // sbrk failed.
+		// 	}
+
+		// 	current_block->size = PADDING(size);
+		// 	return (current_block + 1);
+
+		// } 
+		else {
 			//daca nu s a putut nici sa ne lipim cu blocurile la ddreapta,
 			//iar blocul curent nu este nici ultimul pentru a aplica schema de mai
 			//sus, atunci va fi nevoie sa aloc noul pointer altundeva in memorie

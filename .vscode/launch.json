@@ -22,8 +22,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": false,
-      "cwd": "/mnt/d/Politehnica/an2/sem1/so/teme/memory-allocator/assignment-memory-allocator/tests/snippets",
-      "program": "/mnt/d/Politehnica/an2/sem1/so/teme/memory-allocator/assignment-memory-allocator/tests/snippets/build/Debug/outDebug",
+      "cwd": "/mnt/d/Politehnica/an2/sem1/so/teme/memory-allocator/assignment-memory-allocator/src",
+      "program": "/mnt/d/Politehnica/an2/sem1/so/teme/memory-allocator/assignment-memory-allocator/src/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [
