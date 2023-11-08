@@ -54,6 +54,23 @@ int are_all_mapped() {
 }
 
 
+void *my_memcpy(void *destination, const void *source, size_t num)
+{
+	/* TODO: Implement memcpy(). */
+
+	size_t i = 0;
+
+	char *charSource = (char *)source;
+	char *charDestination = (char *)destination;
+
+	for (i = 0; i < num; i++) {
+		charDestination[i] = charSource[i];
+	}
+
+	return destination;
+}
+
+
 
 
 
@@ -635,7 +652,11 @@ void *os_realloc(void *ptr, size_t size)
 			//iar blocul curent nu este nici ultimul pentru a aplica schema de mai
 			//sus, atunci va fi nevoie sa aloc noul pointer altundeva in memorie
 			void *new_ptr = os_malloc(size);
-			memcpy(new_ptr, ptr, size);
+			// struct block_meta *debug_block = get_block_ptr(new_ptr);
+			// int writing_size = current_block->size < PADDING(size) ? current_block->size : PADDING(size);
+
+			//aici current block.size o sa fie mereu mai mic pt ca sunt in if
+			memcpy(new_ptr, ptr, current_block->size);
 			
 			//scoatem blocul curent din lista
 			//daca il scoatem inseamna ca sigur nu este ultimul, deci current_block->next exista
@@ -688,9 +709,9 @@ void *os_realloc(void *ptr, size_t size)
 		// }
 
 
-	} else if (PADDING(size) < current_block->size) {
+	} else if (PADDING(size) <= current_block->size) {
 		//cazul asta este atunci cand facem resize la un bloc mai mic, dar nu putem face si un bloc nou
-		current_block->size = PADDING(size);
+		// current_block->size = PADDING(size);
 		return (current_block + 1);
 	}
 
