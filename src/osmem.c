@@ -54,21 +54,21 @@ int are_all_mapped() {
 }
 
 
-void *my_memcpy(void *destination, const void *source, size_t num)
-{
-	/* TODO: Implement memcpy(). */
+// void *my_memcpy(void *destination, const void *source, size_t num)
+// {
+// 	/* TODO: Implement memcpy(). */
 
-	size_t i = 0;
+// 	size_t i = 0;
 
-	char *charSource = (char *)source;
-	char *charDestination = (char *)destination;
+// 	char *charSource = (char *)source;
+// 	char *charDestination = (char *)destination;
 
-	for (i = 0; i < num; i++) {
-		charDestination[i] = charSource[i];
-	}
+// 	for (i = 0; i < num; i++) {
+// 		charDestination[i] = charSource[i];
+// 	}
 
-	return destination;
-}
+// 	return destination;
+// }
 
 
 
@@ -493,14 +493,20 @@ void os_free(void *ptr)
 			block_ptr->next->prev = block_ptr->prev;
 		} else {
 			//aici cazul in care block_ptr este ultimul nod
-			block_ptr->prev = NULL;
+			// block_ptr->prev = NULL;
+			if (block_ptr->prev) {
+				block_ptr->prev->next = NULL;
+			}
 		}
 
 		if (block_ptr->prev) {
 			block_ptr->prev->next = block_ptr->next;
 		} else {
 			//aici cazul in care block_ptr este primul nod
-			block_ptr->next = NULL;
+			// block_ptr->next = NULL;
+			if (block_ptr->next) {
+				block_ptr->next->prev = NULL;
+			}
 		}
 
 		if (block_ptr->next == NULL && block_ptr->prev == NULL && block_ptr != NULL) {
@@ -566,7 +572,8 @@ void *os_realloc(void *ptr, size_t size)
 
 
 		//copiam memoria
-		memcpy(new_ptr, (current_block + 1), PADDING(size));
+		// int writing_size = current_block->size < PADDING(size) ? current_block->size : PADDING(size);
+		memcpy(new_ptr, (current_block + 1), PADDING(size)); //inainte 3rd arg era PADDING(size)
 
 		//facem unmap
 		os_free((current_block + 1));
@@ -656,7 +663,8 @@ void *os_realloc(void *ptr, size_t size)
 			// int writing_size = current_block->size < PADDING(size) ? current_block->size : PADDING(size);
 
 			//aici current block.size o sa fie mereu mai mic pt ca sunt in if
-			memcpy(new_ptr, ptr, current_block->size);
+			size_t copy_size = current_block->size;
+			memcpy(new_ptr, ptr, copy_size);
 			
 			//scoatem blocul curent din lista
 			//daca il scoatem inseamna ca sigur nu este ultimul, deci current_block->next exista
