@@ -547,8 +547,25 @@ void *os_calloc(size_t nmemb, size_t size)
 void *os_realloc(void *ptr, size_t size)
 {
 	/* TODO: Implement os_realloc */
+
+	if(ptr == NULL && size == 0) {
+		return os_malloc(size); //heap prealloc
+	}
+
 	if (ptr == NULL) {
-		return os_malloc(size);
+		// return os_malloc(size);
+		void *return_value = os_malloc(size);
+		struct block_meta* return_block = get_block_ptr(return_value);
+		if (PADDING(size) < MMAP_THRESHOLD) {
+
+			if (return_block->status == STATUS_FREE && PADDING(size) < MMAP_THRESHOLD) {
+				return_block->status = STATUS_ALLOC;
+			} //else if (return_block->status == STATUS_FREE && PADDING(size) >= MMAP_THRESHOLD) {
+			// 	return_block->status = STATUS_MAPPED;
+			// }
+		}
+		
+		return return_value;
 	}
 
 	struct block_meta* current_block = get_block_ptr(ptr);
@@ -589,7 +606,7 @@ void *os_realloc(void *ptr, size_t size)
 		return new_ptr;
 	}
 
-	
+
 
 
 
@@ -599,7 +616,9 @@ void *os_realloc(void *ptr, size_t size)
 		//am facut coalesce() la intrarea in functia de realloc()
 		if (current_block->next != NULL && current_block->next->status == STATUS_FREE &&
 		 PADDING(current_block->size) + META_PADDING + PADDING(current_block->next->size) >= PADDING(size)) {
+			
 
+			//ma unesc cu totul de blocul urmator si vad daca mai pot crea unul nou duoa unire
 			current_block->size = current_block->size + META_PADDING + current_block->next->size;
 
 			current_block->next = current_block->next->next;
@@ -607,13 +626,44 @@ void *os_realloc(void *ptr, size_t size)
 				current_block->next->prev = current_block;
 			}
 
+			//aici vad daca noul bloc se poate sparge in cat am nevoie + cat ramane
+			//daca ar ramane suficient de multa memorie, atunci fac un nou bloc
+			if(current_block->size - PADDING(size) >= 40) {
+				struct block_meta *new_block = (struct block_meta*)((char *)(current_block) + META_PADDING + PADDING(size));
+				new_block->size = current_block->size - PADDING(size) - META_PADDING;
+				current_block->size = PADDING(size);
+
+				new_block->status = STATUS_FREE;
+				new_block->prev = current_block;
+				new_block->next = current_block->next;
+				current_block->next = new_block;
+				if (new_block->next != NULL) {
+					new_block->next->prev = new_block;
+				}
+			}
+
+			//acum ca am facut splittingul optim, am blocul meu resized,
+			//verific sa vad daca cumva in pot pune mai la stanga in memorie
+
+			struct block_meta *optimal_find = find_free_block(block_meta_head, size);
+
+			if (optimal_find != NULL && optimal_find < current_block) {
+				memcpy(optimal_find, current_block, META_PADDING + current_block->size);
+				optimal_find->size = current_block->size;
+				optimal_find->status = STATUS_ALLOC;
+				current_block->status = STATUS_FREE;
+				return (optimal_find + 1);
+			}
+
+
 			//////////////////////////////////////////////////////////////////////////////////////////
 			//////////////////////////////////////////////////////////////////////////////////////////
 
-			//intre aceste  // se afla optimizarea la marire de realloc. nu e buna totusi
+			// //intre aceste  // se afla optimizarea la marire de realloc. nu e buna totusi
 
 			// //aici retinem cat ar trebui sa imprumutam din sizeul blocului adiacent
 			// int borrowed = PADDING(size) - current_block->size - META_PADDING;
+			// // int borrowed = PADDING(size) - current_block->size;
 			// //in remainder retinem cat ar fi current.next.size daca imprumuta ca avem nevoie
 			// int remainder = current_block->next->size - borrowed;
 
@@ -663,6 +713,7 @@ void *os_realloc(void *ptr, size_t size)
 			}
 			current_block->size = PADDING(size);
 			current_block->next = NULL;
+			current_block->status = STATUS_ALLOC;
 
 			return (current_block + 1);
 
