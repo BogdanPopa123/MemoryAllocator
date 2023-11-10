@@ -212,9 +212,9 @@ struct block_meta *find_free_block(struct block_meta *head, size_t size, int par
 
 struct block_meta *request_space(struct block_meta* last, size_t size) {
 	struct block_meta *block;
-	
+
 	int meta_size = sizeof(struct block_meta);
-	int request_size = (meta_size % 8 == 0 ? meta_size : (meta_size + (8 - meta_size % 8))) 
+	int request_size = (meta_size % 8 == 0 ? meta_size : (meta_size + (8 - meta_size % 8)))
 	+ ((size % 8 == 0) ? size : (size + (8 - size % 8)));
 
 	//inainte aveam MMAP_THRESHOLD in loc de allocation_threshold atunci cand foloseam
@@ -231,7 +231,7 @@ struct block_meta *request_space(struct block_meta* last, size_t size) {
 		//facem aceasta verificare deoarece la primul request aka primul malloc
 		//last o sa fie NULL, asa ca adaugam noul block la lista inlantuita doar
 		//daca avem deja de cine sa l legam
-		if (last){ 
+		if (last){
 			// last->next->prev = block; //nu e nevoie, deoarece last este ultimul element
 			// dam request doar daca in lista n am gasit nimic, aka am ajuns la last si n am gasit nimic
 			last->next = block;
@@ -245,13 +245,12 @@ struct block_meta *request_space(struct block_meta* last, size_t size) {
 
 		return block;
 	} else { //daca SIZE > MMAP_THRESHOLD folosim mmap
-
 		void *ptr = mmap(NULL, request_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
 		struct block_meta *block_mmap = (struct block_meta *)ptr;
 
 		if (last) {
 			// last->next->prev = block_mmap; // nu e nevoie, deoarece last este ultimul element
-			// dam request doar daca in lista n am gasit nimic, aka am ajuns la last si n am gasit nimic 
+			// dam request doar daca in lista n am gasit nimic, aka am ajuns la last si n am gasit nimic
 
 
 
@@ -261,32 +260,31 @@ struct block_meta *request_space(struct block_meta* last, size_t size) {
 
 			// block_mmap->prev = last;
 		}
-		
+
 		// block_mmap->prev = last;
 		// block_mmap->next = NULL;
 		// block_mmap->size = (size % 8 == 0) ? size : (size + (8 - size % 8)); //inainte era doar size
 		// block_mmap->status = STATUS_MAPPED;
-		
+
 
 		((struct block_meta *)ptr)->prev = last;
 		((struct block_meta *)ptr)->next = NULL;
 		((struct block_meta *)ptr)->size = (size % 8 == 0) ? size : (size + (8 - size % 8)); //inainte era doar size
 		((struct block_meta *)ptr)->status = STATUS_MAPPED;
-		
-		return (struct block_meta *)ptr;
 
+		return (struct block_meta *)ptr;
 	}
 }
 
 		// int meta_size = sizeof(struct block_meta);
-		// int requested_size = (meta_size % 8 == 0 ? meta_size : (meta_size + (8 - meta_size % 8))) 
+		// int requested_size = (meta_size % 8 == 0 ? meta_size : (meta_size + (8 - meta_size % 8)))
 		// + ((size % 8 == 0) ? size : (size + (8 - size % 8)));
 		// void *ptr = mmap(sbrk(0), requested_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
 
 		// struct block_meta *block = (struct block_meta *)ptr;
 		// block->next = NULL;
 		// block->size = size;
-		// block->status = STATUS_MAPPED; 
+		// block->status = STATUS_MAPPED;
 
 struct block_meta *get_block_ptr(void *ptr) {
   return (struct block_meta*)ptr - 1;
@@ -310,7 +308,7 @@ struct block_meta *get_block_ptr(void *ptr) {
 void *os_malloc(size_t size)
 {
 	/* TODO: Implement os_malloc */
-	
+
 	// printf_("%x \n page size is : %d\n", block_meta_head.next, getpagesize());
 	// if (heapPreallocated == 0 && block_meta_head.next == &block_meta_head) {
 	// 	//daca acesta este primul apel malloc, atunci vomm efectua brk
@@ -335,18 +333,18 @@ void *os_malloc(size_t size)
 		heap_prealocatted = 1;
 
 		struct block_meta *prealloc_block;
-	
+
 
 		int meta_size = sizeof(struct block_meta);
 		int request_size = MMAP_THRESHOLD;
 
 		prealloc_block = sbrk(0);
 
-		
+
 		block_meta_head = prealloc_block;
 
 		void *request = sbrk(request_size);
-		
+
 		if (request == (void*) -1){
 			return NULL; // sbrk failed.
 		}
@@ -355,7 +353,6 @@ void *os_malloc(size_t size)
 		prealloc_block->prev = NULL;
 		prealloc_block->status = STATUS_FREE;
 		prealloc_block->size = MMAP_THRESHOLD - PADDING(sizeof(struct block_meta));
-
 	}
 
 
@@ -371,18 +368,18 @@ void *os_malloc(size_t size)
 		heap_prealocatted = 1;
 		// struct block_meta *prealloc_block = request_space(NULL, 128 * 1024);
 		struct block_meta *prealloc_block;
-	
+
 
 		int meta_size = sizeof(struct block_meta);
 		int request_size = MMAP_THRESHOLD;
 
 		prealloc_block = sbrk(0);
 
-		
+
 		block_meta_head = prealloc_block;
 
 		void *request = sbrk(request_size);
-		
+
 		if (request == (void*) -1){
 			return NULL; // sbrk failed.
 		}
@@ -391,7 +388,6 @@ void *os_malloc(size_t size)
 		prealloc_block->prev = NULL;
 		prealloc_block->status = STATUS_FREE;
 		prealloc_block->size = MMAP_THRESHOLD - PADDING(sizeof(struct block_meta));
-
 	}
 
 
@@ -401,7 +397,7 @@ void *os_malloc(size_t size)
 		heap_prealocatted = 1;
 
 		struct block_meta *prealloc_block;
-	
+
 
 		int meta_size = sizeof(struct block_meta);
 		int request_size = MMAP_THRESHOLD;
@@ -413,7 +409,7 @@ void *os_malloc(size_t size)
 		// block_meta_head = prealloc_block;
 
 		void *request = sbrk(request_size);
-		
+
 		if (request == (void*) -1){
 			return NULL; // sbrk failed.
 		}
@@ -430,7 +426,7 @@ void *os_malloc(size_t size)
 
 	//daca marimea este mai mica decat mmap threshold vom folosi brk/sbrk pentru alocarea de memorie
 	// if (size < MMAP_THRESHOLD) {
-		
+
 		struct block_meta *block;
 		//pointerul catre aceasta lista o sa fie pe NULL doar la
 		//primul apel malloc
@@ -462,7 +458,7 @@ void *os_malloc(size_t size)
 				//cer memorie noua cu mmap
 				int calloc_request_size = META_PADDING + PADDING(size);
 				void *calloc_ptr = mmap(NULL, calloc_request_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-				struct block_meta *calloc_mmap = (struct block_meta *)calloc_ptr; 
+				struct block_meta *calloc_mmap = (struct block_meta *)calloc_ptr;
 
 				struct block_meta *last_element = get_last_element_of_list(block_meta_head);
 				if (last_element) {
@@ -481,7 +477,6 @@ void *os_malloc(size_t size)
 
 			//daca nu s a putut gasi un bloc de memorie cerem unul nou
 			if (!block) {
-
 				//mai intai verificam daca ultimul block este free, pentru a aloca fix cat este necesar
 				struct block_meta *last = get_last_element_of_list(block_meta_head);
 
@@ -496,24 +491,23 @@ void *os_malloc(size_t size)
 				if (last && last->status == STATUS_FREE && PADDING(size) < MMAP_THRESHOLD) {
 					struct block_meta *new_last;
 
-					
+
 					int request_size =  PADDING(size) - PADDING(last->size);
 					new_last = sbrk(0);
 					void *request = sbrk(request_size);
-					
+
 					if (request == (void*) -1){
 						return NULL; // sbrk failed.
-						
 					}
 
-					if (last){ 
+					if (last){
 					// last->next->prev = block; //nu e nevoie, deoarece last este ultimul element
 					// dam request doar daca in lista n am gasit nimic, aka am ajuns la last si n am gasit nimic
 					last->next = new_last;
 					// block->prev = last;
 					}
 
-				
+
 					new_last->prev = last;
 					// new_last->size = PADDING(size- last->size - META_PADDING); //inaince era doar size
 					new_last->size = PADDING(size) - PADDING(last->size) - META_PADDING;
@@ -524,11 +518,10 @@ void *os_malloc(size_t size)
 
 					coming_from_calloc = 0;
 					return (last + 1);
-					
-				} else {
-				
 
-				
+				} else {
+
+
 
 
 
