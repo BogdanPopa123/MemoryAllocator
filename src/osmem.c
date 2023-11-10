@@ -40,40 +40,21 @@ void *my_memset(void *source, int value, size_t num)
 	return source;
 }
 
-int are_all_mapped() {
+int are_all_mapped(void)
+{
 	struct block_meta *cursor = block_meta_head;
 
 	while (cursor->next) {
-		if (cursor->status != STATUS_MAPPED) {
+		if (cursor->status != STATUS_MAPPED)
 			return 0;
-		}
+
 		cursor = cursor->next;
 	}
 	return 1;
 }
 
-
-// void *my_memcpy(void *destination, const void *source, size_t num)
-// {
-// 	/* TODO: Implement memcpy(). */
-
-// 	size_t i = 0;
-
-// 	char *charSource = (char *)source;
-// 	char *charDestination = (char *)destination;
-
-// 	for (i = 0; i < num; i++) {
-// 		charDestination[i] = charSource[i];
-// 	}
-
-// 	return destination;
-// }
-
-
-
-
-
-void coalesce_all() {
+void coalesce_all()
+{
 	struct block_meta *cursor = block_meta_head;
 	// struct block_meta *to_be_freed;
 
