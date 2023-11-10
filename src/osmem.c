@@ -325,8 +325,6 @@ void *os_malloc(size_t size)
 
 			block_meta_head = block;
 		} else { //cazul else este atunci cand avem deja alte blocuri alocate (cand nu este primul apel malloc)
-			//ACOLADA ACESTUI ELSE DEASUPRA LA RETURN (BLOCK + 1)
-			// block = find_free_block(&head, size);
 			block = find_free_block(size, 0, NULL);
 
 			//cazul in care imi vine malloc(>4096) din realloc si am un bloc free cu dimensiune > 4096
@@ -681,8 +679,3 @@ void *os_realloc(void *ptr, size_t size)
 
 	return NULL;
 }
-
-
-
-
-
