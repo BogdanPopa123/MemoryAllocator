@@ -172,7 +172,7 @@ struct block_meta *request_space(struct block_meta *last, size_t size)
 	int request_size = (meta_size % 8 == 0 ? meta_size : (meta_size + (8 - meta_size % 8)))
 	+ ((size % 8 == 0) ? size : (size + (8 - size % 8)));
 
-	
+
 	if (request_size < allocation_threshold) {
 		block = sbrk(0);
 		void *request = sbrk(request_size);
@@ -220,11 +220,11 @@ void *os_malloc(size_t size)
 {
 	/* TODO: Implement os_malloc */
 
-	if (!coming_from_calloc) {
+	if (!coming_from_calloc)
 		allocation_threshold = MMAP_THRESHOLD;
-	} else {
+	else
 		allocation_threshold = CALLOC_THRESHOLD;
-	}
+
 
 	if (size == 0) {
 		heap_prealocatted = 1;
