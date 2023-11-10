@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "osmem.h"
-#include "block_meta.h"
-#include "printf.h"
 #include <sys/mman.h>
 #include <unistd.h>
 #include <string.h>
+#include "osmem.h"
+#include "block_meta.h"
+#include "printf.h"
 
 
 #define MMAP_THRESHOLD		(128 * 1024)
@@ -84,7 +84,6 @@ void coalesce_all() {
 
 	while (cursor->next) {
 		if (cursor->status == STATUS_FREE && cursor->next->status == STATUS_FREE) {
-
 			cursor->size = PADDING(cursor->size) + META_PADDING + PADDING(cursor->next->size);
 
 			//il scoatem pe cursor din lista
@@ -156,7 +155,6 @@ struct block_meta *find_free_block(struct block_meta *head, size_t size, int par
 	// }
 	// return current;
 	while (current) {
-
 		//nu stiu daca e bine
 		if (param == 1 && current == stop) {
 			return closest_block;
@@ -183,7 +181,7 @@ struct block_meta *find_free_block(struct block_meta *head, size_t size, int par
 	//si mai ramane loc de inca un struct si cel putin un padding
 	//asta inseamna ca putem face splitting
 	//acest bloc se va afla la adresa closest_block + sizeof(struct) + size
-	
+
 	if (closest_block){
 		int meta_size = sizeof(struct block_meta);
 		int padded_meta = meta_size % 8 == 0 ? meta_size : (meta_size + (8 - meta_size % 8));
@@ -210,26 +208,22 @@ struct block_meta *find_free_block(struct block_meta *head, size_t size, int par
 	}
 
     return closest_block;
-
 }
 
 struct block_meta *request_space(struct block_meta* last, size_t size) {
 	struct block_meta *block;
 	
-		
-
 	int meta_size = sizeof(struct block_meta);
 	int request_size = (meta_size % 8 == 0 ? meta_size : (meta_size + (8 - meta_size % 8))) 
 	+ ((size % 8 == 0) ? size : (size + (8 - size % 8)));
 
-	
 	//inainte aveam MMAP_THRESHOLD in loc de allocation_threshold atunci cand foloseam
 	//aceasta functie ca helper doar pentru malloc
 	//pentru ca malloc si calloc au threshoulduri diferite de mmap/brk voi folosi asta
 	if (request_size < allocation_threshold){
 		block = sbrk(0);
 		void *request = sbrk(request_size);
-		
+
 		if (request == (void*) -1){
 			return NULL; // sbrk failed.
 		}
@@ -244,7 +238,6 @@ struct block_meta *request_space(struct block_meta* last, size_t size) {
 			// block->prev = last;
 		}
 
-		
 		block->prev = last;
 		block->size = (size % 8 == 0) ? size : (size + (8 - size % 8)); //inaince era doar size
 		block->next = NULL;
