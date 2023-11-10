@@ -829,20 +829,7 @@ void *os_realloc(void *ptr, size_t size)
 
 
 			return (current_block + 1);
-		} //else if (current_block->next == NULL && (PADDING(size) - current_block->size) < 40) {
-		// 	//daca vrem sa extindem ultimul bloc cu mai putin de 40 de octeti facem direct cu sbrk
-		// 	int request_size = PADDING(size) - current_block->size;
-		// 	void *request = sbrk(request_size);
-
-		// 	if (request == (void*) -1){
-		// 		return NULL; // sbrk failed.
-		// 	}
-
-		// 	current_block->size = PADDING(size);
-		// 	return (current_block + 1);
-
-		// }
-		else {
+		} else {
 			//daca nu s a putut nici sa ne lipim cu blocurile la ddreapta,
 			//iar blocul curent nu este nici ultimul pentru a aplica schema de mai
 			//sus, atunci va fi nevoie sa aloc noul pointer altundeva in memorie
