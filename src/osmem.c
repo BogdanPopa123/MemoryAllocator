@@ -16,13 +16,13 @@
 
 struct block_meta *block_meta_head;
 
-int heap_prealocatted = 0;
+int heap_prealocatted;
 
 int allocation_threshold;
 
-int coming_from_calloc = 0;
+int coming_from_calloc;
 
-int coming_from_realloc = 0;
+int coming_from_realloc;
 
 
 //helper functions
@@ -34,9 +34,8 @@ void *my_memset(void *source, int value, size_t num)
 	int i, n = (int)num;
 	char *charSource = (char *)source;
 
-	for (i = 0; i < n; i++) {
+	for (i = 0; i < n; i++)
 		*(charSource + i) = value;
-	}
 
 	return source;
 }
