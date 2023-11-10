@@ -142,7 +142,7 @@ struct block_meta *find_free_block(struct block_meta *head, size_t size, int par
 
 			if (current->status == STATUS_FREE && PADDING(current->size) >= size) {
 				int diff = PADDING(current->size) - size;
-				
+
 				if (diff < min_diff) {
 					closest_block = current;
 					min_diff = diff;
@@ -781,49 +781,49 @@ void *os_realloc(void *ptr, size_t size)
 
 
 			return (current_block + 1);
-		} else {
-			//daca nu s a putut nici sa ne lipim cu blocurile la ddreapta,
-			//iar blocul curent nu este nici ultimul pentru a aplica schema de mai
-			//sus, atunci va fi nevoie sa aloc noul pointer altundeva in memorie
+		} 
+		// else {
+		//daca nu s a putut nici sa ne lipim cu blocurile la ddreapta,
+		//iar blocul curent nu este nici ultimul pentru a aplica schema de mai
+		//sus, atunci va fi nevoie sa aloc noul pointer altundeva in memorie
 
 
-			//mai intai verific daca ultimul pointer ne-alocat cu mmap poate fi extins cu sbrk
-			struct block_meta *last_non_mmap = get_last_nonmap_element_of_list();
+		//mai intai verific daca ultimul pointer ne-alocat cu mmap poate fi extins cu sbrk
+		struct block_meta *last_non_mmap = get_last_nonmap_element_of_list();
 
-			if (last_non_mmap->status == STATUS_FREE && find_free_block(block_meta_head, size, 0, NULL) == NULL) {
-				//daca statusul ultimului este free, il pot extinde cu cat am nevoie
-				int request_size = PADDING(size) - PADDING(last_non_mmap->size);
-				void *request = sbrk(request_size);
+		if (last_non_mmap->status == STATUS_FREE && find_free_block(block_meta_head, size, 0, NULL) == NULL) {
+			//daca statusul ultimului este free, il pot extinde cu cat am nevoie
+			int request_size = PADDING(size) - PADDING(last_non_mmap->size);
+			void *request = sbrk(request_size);
 
-				if (request == (void *) -1)
-					return NULL; // sbrk failed.
+			if (request == (void *) -1)
+				return NULL; // sbrk failed.
 
-				last_non_mmap->status = STATUS_ALLOC;
-				last_non_mmap->size = PADDING(size);
-				current_block->status = STATUS_FREE;
+			last_non_mmap->status = STATUS_ALLOC;
+			last_non_mmap->size = PADDING(size);
+			current_block->status = STATUS_FREE;
 
-				//copiez memoria din vechiul ptr la cel nou
-				memcpy(((char *)last_non_mmap + META_PADDING), ptr, current_block->size);
-				os_free(ptr);
-
-				return (last_non_mmap + 1);
-			}
-
-
-
-			void *new_ptr = os_malloc(size);
-			// struct block_meta *debug_block = get_block_ptr(new_ptr);
-			// int writing_size = current_block->size < PADDING(size) ? current_block->size : PADDING(size);
-
-			//aici current block.size o sa fie mereu mai mic pt ca sunt in if
-			size_t copy_size = current_block->size;
-
-			memcpy(new_ptr, ptr, copy_size);
-
+			//copiez memoria din vechiul ptr la cel nou
+			memcpy(((char *)last_non_mmap + META_PADDING), ptr, current_block->size);
 			os_free(ptr);
 
-			return new_ptr;
+			return (last_non_mmap + 1);
 		}
+
+
+
+		void *new_ptr = os_malloc(size);
+		// struct block_meta *debug_block = get_block_ptr(new_ptr);
+		// int writing_size = current_block->size < PADDING(size) ? current_block->size : PADDING(size);
+
+		//aici current block.size o sa fie mereu mai mic pt ca sunt in if
+		size_t copy_size = current_block->size;
+
+		memcpy(new_ptr, ptr, copy_size);
+
+		os_free(ptr);
+
+		return new_ptr;
 
 	} else if (current_block->size - PADDING(size) >= 40) {
 		//daca noul size este mai mic facem splitting
